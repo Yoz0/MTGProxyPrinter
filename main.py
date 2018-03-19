@@ -6,39 +6,11 @@ from logging import info, debug, warning, error
 import argparse
 from argparse import ArgumentParser
 from pathlib import Path
+
 from scryfall import Scryfall
 from mtg_printer import MtgPrinter
+from input_reader import InputReader
 
-
-VERSION_DELIMITER = "|"
-SET_CODE_DELIMITER = "|"
-
-
-def is_ignored(line):
-    return line.strip() == "" or line.strip()[:2] == "//"
-
-def retrieve_number(line):
-    number_string, i, line = "", 0, line.strip()
-    while line[i].isdigit():
-        number_string += line[i]
-        i += 1
-    if number_string == "":
-       return 1
-    else:
-       return int(number_string)
-
-def parse_line(line):
-    line = line.strip()
-    number = retrieve_number(line)
-    line = line.lstrip('0123456789 ')
-    if not VERSION_DELIMITER in line:
-        return (number, line, None, None)
-    name, version = line.split(VERSION_DELIMITER, maxsplit=1)
-    if not SET_CODE_DELIMITER in version:
-        return (number, name.strip(), version.strip().lower(), None)
-    set_code, collector_number = version.split(SET_CODE_DELIMITER, maxsplit=1)
-    return (number, name.strip(), set_code.strip().lower(), 
-            collector_number.strip().lower())
 
 def parse_arguments():
     parser = ArgumentParser(description="MTGProxyPrinter, to create proxy \
@@ -54,6 +26,12 @@ def parse_arguments():
                   choose from : large (default), png, normal and small")
     parser.add_argument('-v', action='store_true',
             help = "Activate verbose mode")
+    parser.add_argument('--set-delimiter', type=str, default="|",
+            help="The character used to separate the name and the set code, \
+                    default is |")
+    parser.add_argument('--collector-delimiter', type=str, default='|',
+            help="The character used to separate the set code and the collector \
+                    number, default is |")
     args = parser.parse_args()
 
     input_path = Path(args.input)
@@ -66,7 +44,6 @@ def parse_arguments():
         output_filename = input_path.name.split('.')[0] + '.pdf'
     if output_filename.split('.')[-1] != 'pdf':
         output_filename += ".pdf"
-        
 
     cache_path = Path(args.cache)
     if cache_path.exists() and cache_path.is_file():
@@ -79,52 +56,50 @@ def parse_arguments():
         exit(1)
 
     verbose = args.v
+    set_delimiter = args.set_delimiter
+    collector_delimiter = args.collector_delimiter
+    
+    return (input_path, output_filename, cache_path, version, verbose,\
+            set_delimiter, collector_delimiter)
 
-    return (input_path, output_filename, cache_path, version, verbose)
-
-def download_cards_from_decklist(input_path, cache_path, img_version):
-    api = Scryfall(cache_path, img_version)
-    with input_path.open('r') as deck:
-        for line in deck:
-            if is_ignored(line): continue
-            number, name, set_code, collector_number = parse_line(line)
-            #TODO: Add verification on name, set_code and collector_number
-            #to avoid code injection and other nasty stuff
-            res = api.get_card(name, set_code, collector_number)
-            if res == None:
-                return 1
+def download_cards_from_decklist(decklist, api):
+    for (number, name, set_code, collector_number) in decklist:
+        res = api.get_card(name, set_code, collector_number)
+        if res == None:
+            return 1
     return 0
 
-def print_decklist(input_path, output_filename, cache_path, img_version):
-    pdf_file = MtgPrinter(output_filename)
-    api = Scryfall(cache_path, img_version)
-    with input_path.open('r') as deck:
-        for line in deck:
-            if is_ignored(line): continue
-            number, name, set_code, collector_number = parse_line(line)
-            #TODO Add verifications
-            images = api.get_card(name, set_code, collector_number)
-            if images == None:
-                return 1
-            info("Adding image of {}" .format(name))
-            for i in range(number):
-                pdf_file.add_images(images)
+def print_decklist(decklist, api, pdf_file):
+    for (number, name, set_code, collector_number) in decklist:
+        images = api.get_card(name, set_code, collector_number)
+        if images == None:
+            return 1
+        info("Adding image of {}" .format(name))
+        for i in range(number):
+            pdf_file.add_images(images)
     pdf_file.save()
     return 0
 
 def main():
-    input_path, output_filename, cache_path, img_version, verbose = \
-            parse_arguments()
+    input_path, output_filename, cache_path, img_version, verbose,\
+            set_delimiter, collector_delimiter = parse_arguments()
     if verbose:
         logging.basicConfig(level=logging.INFO)
     info("Starting program")
-    if download_cards_from_decklist(input_path, cache_path, img_version) > 0:
+
+    api = Scryfall(cache_path, img_version)
+    input_reader = InputReader(set_delimiter, collector_delimiter)
+    decklist = input_reader.get_decklist(input_path)
+    if download_cards_from_decklist(decklist, api) > 0:
         error("Something went wrong when downloading")
-        exit(1)
-    if print_decklist(input_path, output_filename, cache_path, img_version) > 0:
+        return 1
+
+    pdf_file = MtgPrinter(output_filename)
+    if print_decklist(decklist, api, pdf_file) > 0:
         error("Something went wrong when doing the pdf")
-        exit(1)
-    exit(0)
+        return 1
+    return 0
 
 if __name__ == '__main__':
-    main()
+    res = main()
+    exit(res)
