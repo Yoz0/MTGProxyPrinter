@@ -28,7 +28,7 @@ class Scryfall(object):
         return 0
 
     def _is_double_faced(self, card):
-        return card.json()["layout"] == "transform"
+        return card["layout"] == "transform"
 
     def _is_same_card(self, name, set_code, collector_number, card_properties):
         if set_code == None:
@@ -55,9 +55,8 @@ class Scryfall(object):
             return name + delimiter + set_code + delimiter + collector_number
 
     def _card_log_name(self, card):
-        json = card.json()
-        return self._log_name(json["name"], json["set"],
-                json["collector_number"])
+        return self._log_name(card["name"], card["set"],
+                card["collector_number"])
 
     def _request_card(self, name, set_code, collector_number):
         if set_code == None:
@@ -75,34 +74,32 @@ class Scryfall(object):
         return both image if the card is double faced
         """
         if self._is_double_faced(card):
-            url_front = card.json()["card_faces"][0]["image_uris"] \
-                        [self.image_version]
-            url_back = card.json()["card_faces"][1]["image_uris"] \
-                        [self.image_version]
+            url_front = card["card_faces"][0]["image_uris"] [self.image_version]
+            url_back = card["card_faces"][1]["image_uris"][self.image_version]
             r_front = requests.get(url_front, stream=True)
             r_back = requests.get(url_back, stream=True)
             return [r_front, r_back]
-        url = card.json()["image_uris"][self.image_version]
+        url = card["image_uris"][self.image_version]
         return [requests.get(url, stream=True)]
 
-    def _handle_errors(self, card):
-        if card.status_code == 404:
-            error("The card was not found")
+    def _handle_errors(self, response):
+        if response.status_code == 404:
+            error("The response was not found")
             return 1
-        if card.status_code == 429:
+        if response.status_code == 429:
             error("Too many requests, please be slower")
             return 1
-        if card.status_code != 200:
-            error("Unexpected error {}".format(card.status_code))
+        if response.status_code != 200:
+            error("Unexpected error {}".format(response.status_code))
             return 1
         return 0
 
     def _cache_image(self, card, images):
         """ Cache the card image, then return the path to the image"""
         self._add_image_to_index(card)
-        name = card.json()["name"].replace('/','_')
-        set_code = card.json()["set"]
-        collector_number = card.json()["collector_number"]
+        name = card["name"].replace('/','_')
+        set_code = card["set"]
+        collector_number = card["collector_number"]
         if self._is_double_faced(card):
             front_path = self.cache_directory /\
                     "{}_{}_front.jpg".format(set_code, collector_number)
@@ -123,21 +120,20 @@ class Scryfall(object):
 
     def _add_image_to_index(self, card):
         with self.index_path.open('a') as index:
-            json = card.json()
-            line = json["name"] + INDEX_DELIMITER
-            line += json["set"] + INDEX_DELIMITER
-            line += json["collector_number"] + INDEX_DELIMITER
+            line = card["name"] + INDEX_DELIMITER
+            line += card["set"] + INDEX_DELIMITER
+            line += card["collector_number"] + INDEX_DELIMITER
             if self._is_double_faced(card):
                 line += "Yes" + INDEX_DELIMITER
                 line += "{}_{}_front.jpg"\
-                        .format(json["set"], json["collector_number"]) +\
+                        .format(card["set"], card["collector_number"]) +\
                         INDEX_DELIMITER
                 line += "{}_{}_back.jpg"\
-                        .format(json["set"], json["collector_number"])
+                        .format(card["set"], card["collector_number"])
             else:
                 line += "No" + INDEX_DELIMITER
                 line += "{}_{}.jpg"\
-                        .format(json["set"], json["collector_number"]) +\
+                        .format(card["set"], card["collector_number"]) +\
                         INDEX_DELIMITER
             index.write(line + "\n")
         return 0
@@ -193,11 +189,12 @@ class Scryfall(object):
             info("{} was already in cache".format(log_name))
             return self._get_cached(name, set_code, collector_number)
         info("Starting to download {}".format(log_name))
-        card = self._request_card(name, set_code, collector_number)
-        if self._handle_errors(card) != 0:
+        response = self._request_card(name, set_code, collector_number)
+        if self._handle_errors(response) != 0:
             error("Could not download {}".format(log_name))
             return None
-        if card.json()["name"] != name:
+        card = response.json()
+        if card["name"] != name:
             warning(("Found this card : {} \n" + \
                     "It's different from what's written on the file : {}")
                 .format(self._card_log_name(card), log_name))
