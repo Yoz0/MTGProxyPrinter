@@ -94,7 +94,8 @@ class Scryfall(object):
             error("Unexpected error {}".format(response.status_code))
             res = 1
         if res == 1:
-            if 'warnings' in response.json():
+            if 'warnings' in response.json() and\
+                    response.json()['warnings'] != None:
                 for w in response.json()['warnings']:
                     warning(w)
             error(response.json()['details'])
