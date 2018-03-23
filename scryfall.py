@@ -83,16 +83,22 @@ class Scryfall(object):
         return [requests.get(url, stream=True)]
 
     def _handle_errors(self, response):
+        res = 0
         if response.status_code == 404:
             error("The response was not found")
-            return 1
+            res = 1
         if response.status_code == 429:
             error("Too many requests, please be slower")
-            return 1
+            res = 1
         if response.status_code != 200:
             error("Unexpected error {}".format(response.status_code))
-            return 1
-        return 0
+            res = 1
+        if res == 1:
+            if 'warnings' in response.json():
+                for w in response.json()['warnings']:
+                    warning(w)
+            error(response.json()['details'])
+        return res
 
     def _cache_image(self, card, images):
         """ Cache the card image, then return the path to the image"""
