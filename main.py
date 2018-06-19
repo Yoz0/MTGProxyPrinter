@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+
 import os
 import logging
 from logging import info, debug, warning, error
@@ -15,23 +16,22 @@ from input_reader import InputReader
 def parse_arguments():
     parser = ArgumentParser(description="MTGProxyPrinter, to create proxy \
             sheet from deck or cube list")
-    parser.add_argument('input', type=str,
-            help="The input filename")
+    parser.add_argument('input', type=str, help="The input filename")
     parser.add_argument('--out', metavar='output', type=str, default=None,
-            help="The output filename (default: same as input)")
+                        help="The output filename (default: same as input)")
     parser.add_argument('--cache', metavar='cache', type=str, default='cache',
-            help="The cache directory (default: cache/)")
+                        help="The cache directory (default: cache/)")
     parser.add_argument('--img', metavar='version', type=str, default='large',
-            help="The version of the image that will be fetch from Scryfall, \
-                  choose from : large (default), png, normal and small")
-    parser.add_argument('-v', action='store_true',
-            help = "Activate verbose mode")
+                        help="The version of the image that will be fetch from \
+                        Scryfall, choose from : large (default), png, normal \
+                        and small")
+    parser.add_argument('-v', action='store_true', help="Activate verbose mode")
     parser.add_argument('--set-delimiter', type=str, default="|",
-            help="The character used to separate the name and the set code, \
-                    default is |")
+                        help="The character used to separate the name and the \
+                        set code, default is |")
     parser.add_argument('--collector-delimiter', type=str, default='|',
-            help="The character used to separate the set code and the collector \
-                    number, default is |")
+                        help="The character used to separate the set code and \
+                        the collector number, default is |")
     args = parser.parse_args()
 
     input_path = Path(args.input)
@@ -40,7 +40,7 @@ def parse_arguments():
         exit(1)
 
     output_filename = args.out
-    if output_filename == None:
+    if output_filename is None:
         output_filename = input_path.name.split('.')[0] + '.pdf'
     if output_filename.split('.')[-1] != 'pdf':
         output_filename += ".pdf"
@@ -51,14 +51,14 @@ def parse_arguments():
         exit(1)
 
     version = args.img
-    if not version in ["large", "normal", "small", "png"]:
+    if version not in ["large", "normal", "small", "png"]:
         error("{} is not an accepted image version")
         exit(1)
 
     verbose = args.v
     set_delimiter = args.set_delimiter
     collector_delimiter = args.collector_delimiter
-    
+
     return (input_path, output_filename, cache_path, version, verbose,\
             set_delimiter, collector_delimiter)
 
@@ -72,10 +72,10 @@ def download_cards_from_decklist(decklist, api):
 def print_decklist(decklist, api, pdf_file):
     for (number, name, set_code, collector_number) in decklist:
         images = api.get_card(name, set_code, collector_number)
-        if images == None:
+        if images is None:
             return 1
         info("Adding image of {}" .format(name))
-        for i in range(number):
+        for _ in range(number):
             pdf_file.add_images(images)
     pdf_file.save()
     return 0

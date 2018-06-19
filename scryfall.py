@@ -3,10 +3,14 @@ import logging
 from logging import info, error, warning, debug
 import shutil
 from pathlib import Path
+from PIL import Image
+from io import BytesIO
 
 SF_ENDPOINT = "https://api.scryfall.com/"
 SF_ENDPOINT = SF_ENDPOINT + "cards/"
 INDEX_DELIMITER = "&"
+UNIQUE = "art"
+# UNIQUE = "prints"
 
 class Scryfall(object):
     def __init__(self, cache_directory, image_version):
@@ -57,6 +61,18 @@ class Scryfall(object):
     def _card_log_name(self, card):
         return self._log_name(card["name"], card["set"],
                 card["collector_number"])
+
+    def _request_alternatives(self, name, set_code, collector_number):
+        if set_code == None:
+            return requests.get(SF_ENDPOINT + "search?q=" + name\
+                    + "&unique=" + UNIQUE)
+        elif collector_number == None:
+            return requests.get(SF_ENDPOINT + "search?q=" + name\
+                    + "+set=" + set_code + "&unique=" + UNIQUE)
+        else:
+            return requests.get(SF_ENDPOINT + "search?"\
+                    + "set:" + set_code + "+cn:" + collector_number\
+                    + "&unique=" + UNIQUE)
 
     def _request_card(self, name, set_code, collector_number):
         if set_code == None:
@@ -179,6 +195,23 @@ class Scryfall(object):
         image = self._request_image(card)
         return self._cache_image(card, image)
 
+    def _download_all(self, cards):
+        res = []
+        for card in cards['data']:
+            image = []
+            for i in self._request_image(card):
+                image.append(i.content)
+            res.append((image, card['name'], card['set'],\
+                    card['collector_number']))
+        if cards['has_more']:
+            response = requests.get(cards['next_page'])
+            if self._handle_errors(response) != 0:
+                error("Could not download the next page of a big response set.\
+                       This is weird...") 
+            next_cards = response.json()
+            res += self.download_all(next_cards)
+        return res
+
     ### Public methods ###
 
     def get_card(self, name, set_code, collector_number): 
@@ -206,6 +239,26 @@ class Scryfall(object):
                     "It's different from what's written on the file : {}")
                 .format(self._card_log_name(card), log_name))
         return self._download(card)
+
+    def get_alternatives(self, name, set_code, collector_number):
+        """
+        Get all the cards correspoding to the name, set and number.
+        Return all the image with the name, set and number.
+        (image, name, set_code, collector_number)
+        """
+        if name == None or name.strip() == "":
+            error("No name found !")
+            return []
+        log_name = self._log_name(name, set_code, collector_number)
+        info("Starting to download {}".format(log_name))
+        response = self._request_alternatives(name, set_code, collector_number)
+        if self._handle_errors(response) != 0:
+            error("Could not download the alternatives of {}".format(log_name))
+            return []
+        cards = response.json()
+        alternatives = self._download_all(cards)
+        return alternatives
+
 
 # Old Versions of cache methods, keeping it because I may want to change it back
 # def is_cached(name, set_code, collector_number):
