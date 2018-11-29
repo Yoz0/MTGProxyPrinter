@@ -19,10 +19,11 @@ class Scryfall(object):
         self.index_path = cache_directory / "index.txt"
         if self._init_cache() > 0:
             exit(1)         #TODO: This is ugly, it should be done differently
-    
+
     def _init_cache(self):
         if self.cache_directory.is_file():
-            error("{} is a file, not a directory".format(self.cache_directory.name))
+            error("{} is a file, not a directory".format(
+                self.cache_directory.name))
             return 1
         if not self.cache_directory.exists():
             self.cache_directory.mkdir()
@@ -78,7 +79,7 @@ class Scryfall(object):
         if set_code == None:
             return requests.get(SF_ENDPOINT + "named?exact=" + name)
         elif collector_number == None:
-            return requests.get(SF_ENDPOINT + "named?exact=" + name 
+            return requests.get(SF_ENDPOINT + "named?exact=" + name
                     + "&set=" + set_code)
         else:
             return requests.get(SF_ENDPOINT + set_code + "/" + collector_number)
@@ -207,19 +208,19 @@ class Scryfall(object):
             response = requests.get(cards['next_page'])
             if self._handle_errors(response) != 0:
                 error("Could not download the next page of a big response set.\
-                       This is weird...") 
+                       This is weird...")
             next_cards = response.json()
             res += self.download_all(next_cards)
         return res
 
     ### Public methods ###
 
-    def get_card(self, name, set_code, collector_number): 
+    def get_card(self, name, set_code, collector_number):
         """
-        Get the card in scryfall with the specified name.
+        Get the card on Scryfall with the specified name.
         Search for the card in the set specified by set_code if provided.
         Cache the image in the cache directory.
-        Return 1 if something wrong happend, 0 otherwise.
+        Return 1 if something wrong happened, 0 otherwise.
         """
         if name == None or name.strip() == "":
             error("No name found !")
@@ -242,7 +243,7 @@ class Scryfall(object):
 
     def get_alternatives(self, name, set_code, collector_number):
         """
-        Get all the cards correspoding to the name, set and number.
+        Get all the cards corresponding to the name, set and number.
         Return all the image with the name, set and number.
         (image, name, set_code, collector_number)
         """
@@ -259,23 +260,3 @@ class Scryfall(object):
         alternatives = self._download_all(cards)
         return alternatives
 
-
-# Old Versions of cache methods, keeping it because I may want to change it back
-# def is_cached(name, set_code, collector_number):
-#     match_string = matching_string(name, set_code, collector_number)
-#     for file_path in CACHE_DIRECTORY.iterdir():
-#         if match_string.lower() in file_path.name.lower():
-#             info("The card {} is already in cache".format(match_string))
-#             return True
-#     return False
-
-# def get_images_cached(name, set_code, collector_number):
-#     match_string = matching_string(name, set_code, collector_number)
-#     for file_path in CACHE_DIRECTORY.iterdir():
-#         if match_string.lower() in file_path.name.lower():
-#             if file_path.is_dir():
-#                 return [Path(f) for f in file_path.iterdir()]
-#             else:
-#                 return  [Path(file_path)]
-#     error("The card {} was not found in cache".format(match_string))
-#     return None
