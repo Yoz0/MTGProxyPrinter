@@ -84,6 +84,19 @@ class Scryfall(object):
         else:
             return requests.get(SF_ENDPOINT + set_code + "/" + collector_number)
 
+    def _request_image_url(self, card):
+        """
+        Get the url of the image of the card
+        return (url_front, url_back) with url_back as None is the cars is not
+        dfc
+        """
+        if self._is_double_faced(card):
+            url_front = card["card_faces"][0]["image_uris"] [self.image_version]
+            url_back = card["card_faces"][1]["image_uris"][self.image_version]
+            return (url_front, url_back)
+        url = card["image_uris"][self.image_version]
+        return (url, None)
+
     def _request_image(self, card):
         """
         Get the image of the card
@@ -200,10 +213,9 @@ class Scryfall(object):
         res = []
         for card in cards['data']:
             image = []
-            for i in self._request_image(card):
-                image.append(i.content)
-            res.append((image, card['name'], card['set'],\
-                    card['collector_number']))
+            url_front, url_back = self._request_image_url(card)
+            res.append((card['set'], card['collector_number'], url_front,\
+                url_back))
         if cards['has_more']:
             response = requests.get(cards['next_page'])
             if self._handle_errors(response) != 0:
@@ -244,8 +256,7 @@ class Scryfall(object):
     def get_alternatives(self, name, set_code, collector_number):
         """
         Get all the cards corresponding to the name, set and number.
-        Return all the image with the name, set and number.
-        (image, name, set_code, collector_number)
+        Return all cards as (set_code, collector_number, url_front, url_back)
         """
         if name == None or name.strip() == "":
             error("No name found !")
