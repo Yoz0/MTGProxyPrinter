@@ -34,14 +34,21 @@ def parse_arguments():
                     number, default is |")
     args = parser.parse_args()
 
-    input_path = Path(args.input)
-    if not (input_path.exists() and input_path.is_file()):
-        error("The input file does not exists, or is not a file")
-        exit(1)
+    if args.input == "-":
+        input_path = "-"
+    else:
+        input_path = Path(args.input)
+        if not (input_path.exists() and input_path.is_file()):
+            error("The input file does not exists, or is not a file")
+            exit(1)
 
     output_filename = args.out
     if output_filename == None:
-        output_filename = input_path.name.split('.')[0] + '.pdf'
+        try:
+            output_filename = input_path.name.split('.')[0] + '.pdf'
+        except Exception:
+            output_filename = "out.pdf"
+        
     if output_filename.split('.')[-1] != 'pdf':
         output_filename += ".pdf"
 
