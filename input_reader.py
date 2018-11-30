@@ -1,5 +1,5 @@
 from pathlib import Path
-
+from sys import stdin
 
 
 class InputReader(object):
@@ -37,15 +37,25 @@ class InputReader(object):
 
     def get_decklist(self, deck_path):
         """
-        deck_path should be of the type Path
+        If deck_path is a Path, the corresponding file is opened ;
+        else, we read from stdin.
+        
         Return the decklist as a list of form :
         [(number, name, set_code, collector_number), ...]
         if any of this is not precised in the file it will be None 
         """
         decklist = []
-        with deck_path.open() as deck:
+        
+        if isinstance(deck_path, Path):
+            source = deck_path.open()
+            # not a problem with 'with', it calls __exit__() on the object
+        else:
+            source = stdin
+        
+        with source as deck:
             for line in deck:
                 if self._is_ignored(line): continue
                 #TODO: check the line for stuff
                 decklist.append(self._parse_line(line))
+                
         return decklist
