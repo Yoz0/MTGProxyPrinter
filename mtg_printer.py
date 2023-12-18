@@ -8,11 +8,14 @@ from reportlab.lib.units import inch
 from reportlab.lib.utils import ImageReader
 from PIL import Image
 
+CARDS_PER_ROW = 3
+ROWS_PER_PAGE = 3
+
 OUTPUT_PAGESIZE = A4
 PAGE_WIDTH, PAGE_HEIGHT = OUTPUT_PAGESIZE
 CARD_WIDTH = 2.5 * inch
 CARD_HEIGHT = 3.5 * inch
-MARGIN_LEFT = 0.38 * inch
+MARGIN_LEFT = (PAGE_WIDTH - CARDS_PER_ROW * CARD_WIDTH) / 2
 MARGIN_TOP = 0.6 * inch
 SPACE_BETWEEN = 0 * inch
 
@@ -31,9 +34,9 @@ class MtgPrinter(object):
         self._update_coordinate()
 
     def _update_coordinate(self):
-        if self.column < 2:
+        if self.column < CARDS_PER_ROW - 1:
             self.column += 1
-        elif self.row < 2:
+        elif self.row < ROWS_PER_PAGE - 1:
             self.row += 1
             self.column = 0
         else:
